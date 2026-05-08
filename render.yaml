@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: logapi
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: logapi-db
+          property: connectionString
+
+databases:
+  - name: logapi-db
+    databaseName: logapi
+    user: logapi

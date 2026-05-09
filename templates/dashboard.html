@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>LogAPI Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#f5f5f7;--surface:#e8e8ec;--card:#ffffff;--border:#d0d0d8;--accent:#7c3aed;--cyan:#0891b2;--green:#059669;--red:#dc2626;--amber:#d97706;--text:#1f2937;--muted:#6b7280;--mono:'JetBrains Mono',monospace;--sans:'Syne',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;background-image:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(124,58,237,.02) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(124,58,237,.02) 40px)}
+
+header{position:sticky;top:0;z-index:10;background:rgba(245,245,247,.92);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:.85rem 2rem;display:flex;align-items:center;gap:1rem}
+.logo{font-size:1.2rem;font-weight:800;letter-spacing:-.02em}.logo span{color:var(--accent)}
+.pill{font-family:var(--mono);font-size:.6rem;background:var(--accent);color:#fff;padding:.18rem .5rem;border-radius:999px}
+nav{margin-left:auto;display:flex;gap:.25rem}
+nav button{background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:.75rem;padding:.4rem .8rem;border-radius:6px;cursor:pointer;transition:all .15s}
+nav button.active,nav button:hover{background:rgba(124,58,237,.15);color:var(--accent)}
+
+main{max-width:1040px;margin:0 auto;padding:2rem;position:relative;z-index:1}
+
+.controls{display:flex;gap:.75rem;margin-bottom:2rem;flex-wrap:wrap}
+input{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:.85rem;padding:.6rem 1rem;border-radius:8px;outline:none;flex:1;min-width:180px;transition:border-color .2s}
+input:focus{border-color:var(--accent)}
+button{background:var(--accent);color:#fff;border:none;cursor:pointer;font-family:var(--sans);font-weight:700;font-size:.82rem;padding:.6rem 1.3rem;border-radius:8px;transition:background .2s,transform .1s}
+button:hover{background:#6d28d9}
+button:active{transform:scale(.97)}
+button.ghost{background:var(--surface);border:1px solid var(--border);color:var(--muted)}
+button.ghost:hover{border-color:var(--cyan);color:var(--cyan);background:var(--surface)}
+
+.slabel{font-size:.65rem;font-family:var(--mono);letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin-bottom:.85rem;display:flex;align-items:center;gap:.5rem}
+.slabel::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1rem;margin-bottom:2rem}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.1rem}
+.stat-l{font-size:.62rem;font-family:var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem}
+.stat-v{font-size:1.6rem;font-weight:800;line-height:1}
+.pu{color:var(--accent)}.cy{color:var(--cyan)}.gr{color:var(--green)}.am{color:var(--amber)}
+
+.si-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.si-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.65rem 1rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;font-size:.8rem}
+.si-key{color:var(--muted);font-family:var(--mono);white-space:nowrap}
+.si-val{color:var(--text);font-family:var(--mono);text-align:right;word-break:break-all}
+
+.file-list{display:flex;flex-direction:column;gap:.4rem}
+.file-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem;font-size:.82rem;animation:si .2s ease both}
+.ext-badge{font-family:var(--mono);font-size:.68rem;padding:.18rem .5rem;border-radius:5px;background:rgba(6,182,212,.12);color:var(--cyan);border:1px solid rgba(6,182,212,.25);white-space:nowrap}
+.ext-py{background:rgba(16,185,129,.12);color:var(--green);border-color:rgba(16,185,129,.25)}
+.ext-txt{background:rgba(245,158,11,.12);color:var(--amber);border-color:rgba(245,158,11,.25)}
+.ext-zip{background:rgba(244,63,94,.12);color:var(--red);border-color:rgba(244,63,94,.25)}
+
+.profile-list{display:flex;flex-direction:column;gap:.6rem}
+.profile-block{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;animation:si .25s ease both;transition:border-color .2s}
+.profile-block.open{border-color:var(--accent)}
+.profile-header{display:flex;align-items:center;gap:.75rem;padding:.85rem 1.1rem;cursor:pointer;user-select:none;transition:background .15s}
+.profile-header:hover{background:rgba(124,58,237,.04)}
+.profile-icon{font-size:1.1rem;flex-shrink:0}
+.profile-name{font-weight:700;font-size:.88rem;flex:1;letter-spacing:-.01em}
+.profile-count{font-family:var(--mono);font-size:.68rem;color:var(--muted);background:var(--surface);border:1px solid var(--border);padding:.15rem .5rem;border-radius:999px;flex-shrink:0}
+.profile-chevron{font-size:.85rem;color:var(--muted);transition:transform .25s;flex-shrink:0}
+.profile-block.open .profile-chevron{transform:rotate(90deg);color:var(--accent)}
+.profile-entries{display:none;border-top:1px solid var(--border);max-height:520px;overflow-y:auto}
+.profile-block.open .profile-entries{display:block}
+.bh-card{border-bottom:1px solid var(--border);overflow:hidden;transition:background .15s}
+.bh-card:last-child{border-bottom:none}
+.bh-card:hover{background:rgba(124,58,237,.03)}
+.bh-top{padding:.65rem 1.1rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+.bh-title{font-size:.8rem;font-weight:600;line-height:1.4;flex:1}
+.bh-meta{display:flex;flex-direction:column;align-items:flex-end;gap:.25rem;flex-shrink:0}
+.bh-ts{font-family:var(--mono);font-size:.63rem;color:var(--muted)}
+.bh-visits{font-family:var(--mono);font-size:.63rem;color:var(--cyan)}
+.bh-url{padding:.35rem 1.1rem .6rem;border-top:1px solid rgba(208,208,216,.4)}
+.bh-url a{font-family:var(--mono);font-size:.66rem;color:var(--accent);text-decoration:none;word-break:break-all;line-height:1.5}
+.bh-url a:hover{text-decoration:underline}
+
+/* entries list — user + timestamp rows only */
+.entries-list{display:flex;flex-direction:column;gap:.4rem}
+.entry-row{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.75rem 1.1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;cursor:pointer;transition:border-color .15s,background .15s;animation:si .2s ease both}
+.entry-row:hover{border-color:var(--accent);background:rgba(124,58,237,.03)}
+.entry-uid{font-weight:700;font-size:.88rem}
+.entry-ts{font-family:var(--mono);font-size:.68rem;color:var(--muted)}
+.entry-arrow{color:var(--accent);font-size:1.1rem;flex-shrink:0}
+
+/* view panels */
+#view-user{display:none}
+#view-entries{display:none}
+#view-error{display:none}
+
+/* prominent error state */
+.error-box{background:var(--card);border:2px solid var(--red);border-radius:16px;padding:3rem 2rem;text-align:center;max-width:480px;margin:4rem auto}
+.error-icon{font-size:3rem;margin-bottom:1rem}
+.error-title{font-size:1.4rem;font-weight:800;color:var(--red);margin-bottom:.5rem}
+.error-msg{font-family:var(--mono);font-size:.82rem;color:var(--muted);margin-bottom:1.75rem;line-height:1.6}
+.error-retry{display:inline-block;background:var(--red);color:#fff;border:none;cursor:pointer;font-family:var(--sans);font-weight:700;font-size:.82rem;padding:.65rem 1.5rem;border-radius:8px;transition:background .2s}
+.error-retry:hover{background:#b91c1c}
+
+.empty{text-align:center;padding:4rem 2rem;color:var(--muted);font-family:var(--mono);font-size:.82rem}
+.empty .big{font-size:2.5rem;margin-bottom:.5rem}
+
+@keyframes si{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:99;background:var(--card);border:1px solid var(--border);padding:.6rem 1rem;border-radius:10px;font-family:var(--mono);font-size:.74rem;color:var(--muted);display:flex;align-items:center;gap:.5rem;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}.dot{width:7px;height:7px;border-radius:50%;background:var(--green)}.dot.r{background:var(--red)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Log<span>API</span></div>
+  <span class="pill">LOCAL</span>
+  <nav>
+    <button class="active" onclick="switchTab('parsed',this)">Parsed View</button>
+  </nav>
+</header>
+
+<main>
+  <div class="controls">
+    <input id="uid" placeholder="user_id  e.g. umer" onkeydown="if(event.key==='Enter')load()"/>
+    <button onclick="load()">Load</button>
+    <button class="ghost" onclick="loadEntries()">All Entries</button>
+  </div>
+
+  <!-- default empty state -->
+  <div id="view-empty">
+    <div class="empty"><div class="big">🖥️</div>Enter a user_id and click Load,<br>or click All Entries to browse.</div>
+  </div>
+
+  <!-- USER DETAIL VIEW — shown only after a user is loaded -->
+  <div id="view-user">
+    <div class="stats">
+      <div class="stat"><div class="stat-l">User</div><div class="stat-v cy" id="s-user">—</div></div>
+      <div class="stat"><div class="stat-l">History Entries</div><div class="stat-v pu" id="s-hist">—</div></div>
+      <div class="stat"><div class="stat-l">Recent Files</div><div class="stat-v am" id="s-files">—</div></div>
+      <div class="stat"><div class="stat-l">Received</div><div class="stat-v gr" id="s-time" style="font-size:.9rem;margin-top:.3rem">—</div></div>
+    </div>
+    <div class="slabel">System Information</div>
+    <div class="si-grid" id="si-grid"></div>
+    <div class="slabel" style="margin-top:2rem">Recently Accessed Files</div>
+    <div class="file-list" id="file-list"></div>
+    <div class="slabel" style="margin-top:2rem">Browser History by Profile</div>
+    <div class="profile-list" id="profile-list"></div>
+  </div>
+
+  <!-- ERROR VIEW — shown prominently when user not found or API error -->
+  <div id="view-error">
+    <div class="error-box">
+      <div class="error-icon">⚠️</div>
+      <div class="error-title" id="error-title">Not Found</div>
+      <div class="error-msg" id="error-msg">No data found for this user.</div>
+      <button class="error-retry" onclick="resetToEmpty()">← Go Back</button>
+    </div>
+  </div>
+
+  <!-- ALL ENTRIES VIEW — user rows + timestamps only, click to drill in -->
+  <div id="view-entries">
+    <div class="slabel">All Entries</div>
+    <div class="entries-list" id="entries-list"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"><div class="dot" id="tdot"></div><span id="tmsg"></span></div>
+
+<script>
+/* ── view switcher ── */
+function showView(name) {
+  document.getElementById('view-empty').style.display   = name === 'empty'   ? 'block' : 'none';
+  document.getElementById('view-user').style.display    = name === 'user'    ? 'block' : 'none';
+  document.getElementById('view-entries').style.display = name === 'entries' ? 'block' : 'none';
+  document.getElementById('view-error').style.display   = name === 'error'   ? 'block' : 'none';
+}
+
+function showError(title, msg) {
+  document.getElementById('error-title').textContent = title;
+  document.getElementById('error-msg').textContent   = msg;
+  showView('error');
+}
+
+function resetToEmpty() {
+  showView('empty');
+  document.getElementById('uid').value = '';
+  document.getElementById('uid').focus();
+}
+
+/* ── toast ── */
+function toast(msg, ok = true) {
+  const t = document.getElementById('toast');
+  document.getElementById('tmsg').textContent = msg;
+  document.getElementById('tdot').className = 'dot' + (ok ? '' : ' r');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function extClass(ext) {
+  if (ext === '.py')  return 'ext-badge ext-py';
+  if (ext === '.txt') return 'ext-badge ext-txt';
+  if (ext === '.zip') return 'ext-badge ext-zip';
+  return 'ext-badge';
+}
+
+/* ── load by user_id ── */
+async function load() {
+  const uid = document.getElementById('uid').value.trim();
+  if (!uid) { toast('Enter a user_id', false); return; }
+  try {
+    const r = await fetch(`/parse?user_id=${encodeURIComponent(uid)}`);
+    const d = await r.json();
+    if (!r.ok) {
+      showError('Request Failed', d.error || `Server returned ${r.status}`);
+      return;
+    }
+    if (!d.meta) {
+      showError('User Not Found', `No log data exists for user "${uid}". Check the ID and try again.`);
+      return;
+    }
+    renderUser(d);
+    toast(`Loaded data for "${uid}"`);
+  } catch (e) {
+    showError('Network Error', 'Could not reach the deployed service. Make sure the Render app is running.');
+  }
+}
+
+/* ── render full user detail ── */
+function renderUser(d) {
+  try {
+    d.system_info     = d.system_info     || {};
+    d.recent_files    = Array.isArray(d.recent_files)    ? d.recent_files    : [];
+    d.browser_history = Array.isArray(d.browser_history) ? d.browser_history : [];
+    d.browser_profiles= d.browser_profiles || {};
+  } catch(_) {}
+
+  showView('user');
+
+  const profileCount = Object.keys(d.browser_profiles).length;
+  document.getElementById('s-user').textContent  = d.meta.user_id;
+  document.getElementById('s-hist').textContent  = d.browser_history.length;
+  document.getElementById('s-files').textContent = d.recent_files.length;
+  document.getElementById('s-time').textContent  = d.meta.received_at.slice(0, 16);
+
+  // system info
+  const si = document.getElementById('si-grid');
+  const siEntries = Object.entries(d.system_info);
+  si.innerHTML = siEntries.length
+    ? siEntries.map(([k, v]) => `
+        <div class="si-row">
+          <span class="si-key">${esc(k)}</span>
+          <span class="si-val">${esc(v)}</span>
+        </div>`).join('')
+    : '<div class="empty" style="grid-column:1/-1"><div class="big">🖥️</div>No system info found</div>';
+
+  // recent files
+  const fl = document.getElementById('file-list');
+  fl.innerHTML = d.recent_files.length
+    ? d.recent_files.map((f, i) => `
+        <div class="file-row" style="animation-delay:${i * 30}ms">
+          <span class="${extClass(f.ext)}">${esc(f.ext)}</span>
+          <span>${esc(f.name)}</span>
+        </div>`).join('')
+    : '<div class="empty"><div class="big">📂</div>No recent files</div>';
+
+  // browser history — per profile accordion
+  const pl = document.getElementById('profile-list');
+  const profiles = Object.entries(d.browser_profiles);
+
+  if (!profiles.length && !d.browser_history.length) {
+    pl.innerHTML = '<div class="empty"><div class="big">🌐</div>No browser history</div>';
+    return;
+  }
+
+  // If API returned profiles map, use it; else fall back to flat list under "Default"
+  const profileData = profiles.length
+    ? profiles
+    : [['Default', d.browser_history]];
+
+  pl.innerHTML = profileData.map(([profileName, entries], pi) => {
+    const rows = Array.isArray(entries)
+      ? entries.map((h, i) => `
+          <div class="bh-card" style="animation-delay:${i * 15}ms">
+            <div class="bh-top">
+              <div class="bh-title">${esc(h.title || '(no title)')}</div>
+              <div class="bh-meta">
+                <span class="bh-ts">${esc(h.timestamp)}</span>
+                <span class="bh-visits">↩ ${h.visits} visit${h.visits !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+            ${h.url ? `<div class="bh-url"><a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(h.url)}</a></div>` : ''}
+          </div>`).join('')
+      : '<div class="empty" style="padding:1.5rem"><div class="big">🌐</div>No entries</div>';
+
+    return `
+      <div class="profile-block" id="pb-${pi}" style="animation-delay:${pi * 60}ms">
+        <div class="profile-header" onclick="toggleProfile(${pi})">
+          <span class="profile-icon">🗂️</span>
+          <span class="profile-name">${esc(profileName)}</span>
+          <span class="profile-count">${Array.isArray(entries) ? entries.length : 0} URL${(Array.isArray(entries) ? entries.length : 0) !== 1 ? 's' : ''}</span>
+          <span class="profile-chevron">▶</span>
+        </div>
+        <div class="profile-entries">${rows}</div>
+      </div>`;
+  }).join('');
+
+  // Auto-open the first profile
+  const first = document.getElementById('pb-0');
+  if (first) first.classList.add('open');
+}
+
+function toggleProfile(idx) {
+  const block = document.getElementById('pb-' + idx);
+  if (block) block.classList.toggle('open');
+}
+
+/* ── All Entries — shows ONLY user rows with timestamps ── */
+async function loadEntries() {
+  try {
+    const r = await fetch('/users');
+    const d = await r.json();
+    const el = document.getElementById('entries-list');
+
+    if (!r.ok) {
+      showError('Failed to Load Entries', d.error || `Server returned ${r.status}`);
+      return;
+    }
+    const entries = Array.isArray(d.entries) ? d.entries : [];
+    if (!entries.length) {
+      el.innerHTML = '<div class="empty"><div class="big">📋</div>No entries yet</div>';
+    } else {
+      el.innerHTML = entries.map((e, i) => `
+        <div class="entry-row" style="animation-delay:${i * 20}ms" onclick="loadById(${e.id})">
+          <span class="entry-uid">${esc(e.user_id)}</span>
+          <span class="entry-ts">${esc(e.received_at)}</span>
+          <span class="entry-arrow">→</span>
+        </div>`).join('');
+      toast(`${entries.length} entr${entries.length !== 1 ? 'ies' : 'y'} found`);
+    }
+
+    showView('entries');
+  } catch (e) {
+    showError('Network Error', 'Could not reach the deployed service. Make sure the Render app is running.');
+  }
+}
+
+/* ── load entry by id (clicking a row in All Entries) ── */
+async function loadById(entryId) {
+  try {
+    const r = await fetch(`/parse?id=${entryId}`);
+    const d = await r.json();
+    if (!r.ok) {
+      showError('Entry Not Found', d.error || `No entry found with ID #${entryId}.`);
+      return;
+    }
+    renderUser(d);
+    toast(`Loaded entry #${entryId}`);
+  } catch (e) {
+    showError('Network Error', 'Could not reach the deployed service. Make sure the Render app is running.');
+  }
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+</body>
+</html>

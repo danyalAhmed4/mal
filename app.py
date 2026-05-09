@@ -128,10 +128,8 @@ def get_data():
 
 @app.route("/users", methods=["GET"])
 def list_users():
-    rows = (db.session.query(LogEntry.user_id, db.func.count(LogEntry.id))
-                      .group_by(LogEntry.user_id).all())
-    return jsonify({"users": [{"user_id": r[0], "log_count": r[1]} for r in rows]})
-
+    entries = (LogEntry.query.order_by(LogEntry.received_at.desc()).all())
+    return jsonify({"entries": [e.to_dict() for e in entries]})
 
 @app.route("/parse", methods=["GET"])
 def parse_entry():

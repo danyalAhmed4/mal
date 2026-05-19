@@ -240,7 +240,8 @@ function renderUser(d) {
   document.getElementById('s-user').textContent  = d.meta.user_id;
   document.getElementById('s-hist').textContent  = d.browser_history.length;
   document.getElementById('s-files').textContent = d.recent_files.length;
-  document.getElementById('s-time').textContent  = d.meta.received_at.slice(0, 16);
+  const utcDate = new Date(d.meta.received_at.replace(' ', 'T').replace(' UTC', 'Z'));
+  document.getElementById('s-time').textContent = utcDate.toLocaleString('en-PK', {timeZone: 'Asia/Karachi'});
 
   // system info
   const si = document.getElementById('si-grid');
@@ -332,7 +333,7 @@ async function loadEntries() {
       el.innerHTML = entries.map((e, i) => `
         <div class="entry-row" style="animation-delay:${i * 20}ms" onclick="loadById(${e.id})">
           <span class="entry-uid">${esc(e.user_id)}</span>
-          <span class="entry-ts">${esc(e.received_at)}</span>
+          <span class="entry-ts">${new Date(e.received_at.replace(' ', 'T').replace(' UTC', 'Z')).toLocaleString('en-PK', {timeZone: 'Asia/Karachi'})}</span>
           <span class="entry-arrow">→</span>
         </div>`).join('');
       toast(`${entries.length} entr${entries.length !== 1 ? 'ies' : 'y'} found`);

@@ -170,6 +170,12 @@ def clear_data():
     db.session.commit()
     return jsonify({"message": "All data cleared"})
 
+@app.route("/user/<user_id>", methods=["DELETE"])
+def delete_user(user_id):
+    deleted = LogEntry.query.filter_by(user_id=user_id).delete()
+    db.session.commit()
+    return jsonify({"message": f"Deleted {deleted} entries for '{user_id}'"})
+
 
 @app.route("/")
 def dashboard():
